@@ -1,22 +1,15 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
-import time
 
-# ── 0) Page title ─────────────────────────────────────────────────────────────
+# ── Page Title ───────────────────────────────────────────────────────────────
 st.title("CRGE Historical Database Explorer")
 
-# ── 1) Supabase credentials via Streamlit secrets ────────────────────────────
+# ── Supabase Credentials ─────────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-# ── 2) Helper to trigger rerun ───────────────────────────────────────────────
-def rerun():
-    # Use query param to force a rerun
-    st.query_params(_rerun=int(time.time()))
-    st.stop()
-
-# ── 3) Authentication flow ───────────────────────────────────────────────────
+# ── Authentication Flow ──────────────────────────────────────────────────────
 if "access_token" not in st.session_state:
     st.subheader("🔐 Sign In")
     email = st.text_input("Email")
@@ -27,12 +20,12 @@ if "access_token" not in st.session_state:
             auth_res = client.auth.sign_in_with_password({"email": email, "password": password})
             token = auth_res.session.access_token
             st.session_state["access_token"] = token
-            rerun()
+            st.experimental_rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
     st.stop()
 
-# ── 4) Authenticated Supabase client ─────────────────────────────────────────
+# ── Authenticated Supabase Client ───────────────────────────────────────────
 @st.cache_resource
 def get_supabase(token: str):
     sb = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -41,7 +34,7 @@ def get_supabase(token: str):
 
 supabase = get_supabase(st.session_state["access_token"])
 
-# ── 5) Data helpers ──────────────────────────────────────────────────────────
+# ── Data Helpers ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=600)
 def load_options(table: str, column: str):
     resp = supabase.table(table).select(column).execute()
@@ -67,13 +60,13 @@ def fetch_entries(table: str, country: str, period: str, section: str, search: s
         q = q.ilike("entry", f"%{search}%")
     return q.execute().data or []
 
-# ── 6) UI filters ─────────────────────────────────────────────────────────────
+# ── UI Filters ───────────────────────────────────────────────────────────────
 country = st.selectbox("Country", load_options("English", "country"))
 period  = st.selectbox("Period",  load_options("English", "period"))
 section = st.selectbox("Section", load_options("English", "section"))
 search  = st.text_input("Search entries…")
 
-# ── 7) Fetch and render data ─────────────────────────────────────────────────
+# ── Fetch & Render Data ──────────────────────────────────────────────────────
 eng_rows  = fetch_entries("English", country, period, section, search)
 orig_rows = fetch_entries("OriginalLanguage", country, period, section, search)
 
@@ -91,7 +84,7 @@ def render(rows, label: str):
 render(eng_rows,  "English")
 render(orig_rows, "原文 (Original Language)")
 
-# ── 8) Logout ────────────────────────────────────────────────────────────────
+# ── Logout Button ────────────────────────────────────────────────────────────
 if st.button("🔒 Log out"):
     del st.session_state["access_token"]
-    rerun()
+    st.experimental_rerun()
