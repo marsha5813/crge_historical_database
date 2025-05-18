@@ -20,7 +20,7 @@ if "access_token" not in st.session_state:
             auth_res = client.auth.sign_in_with_password({"email": email, "password": password})
             token = auth_res.session.access_token
             st.session_state["access_token"] = token
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
     st.stop()
@@ -87,4 +87,4 @@ render(orig_rows, "原文 (Original Language)")
 # ── Logout Button ────────────────────────────────────────────────────────────
 if st.button("🔒 Log out"):
     del st.session_state["access_token"]
-    st.experimental_rerun()
+    st.rerun()
