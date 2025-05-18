@@ -13,7 +13,7 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 # ── 2) Helper to trigger rerun ───────────────────────────────────────────────
 def rerun():
     # Use query param to force a rerun
-    st.experimental_set_query_params(_rerun=int(time.time()))
+    st.query_params(_rerun=int(time.time()))
     st.stop()
 
 # ── 3) Authentication flow ───────────────────────────────────────────────────
