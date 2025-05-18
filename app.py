@@ -6,11 +6,17 @@ import time
 # ── 0) Page title ─────────────────────────────────────────────────────────────
 st.title("CRGE Historical Database Explorer")
 
-# ── 1) Supabase connection info from Streamlit secrets ─────────────────────
+# ── 1) Supabase credentials via Streamlit secrets ────────────────────────────
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-# ── 2) Authentication flow using Supabase Auth ───────────────────────────────
+# ── 2) Helper to trigger rerun ───────────────────────────────────────────────
+def rerun():
+    # Use query param to force a rerun
+    st.experimental_set_query_params(_rerun=int(time.time()))
+    st.stop()
+
+# ── 3) Authentication flow ───────────────────────────────────────────────────
 if "access_token" not in st.session_state:
     st.subheader("🔐 Sign In")
     email = st.text_input("Email")
@@ -21,15 +27,12 @@ if "access_token" not in st.session_state:
             auth_res = client.auth.sign_in_with_password({"email": email, "password": password})
             token = auth_res.session.access_token
             st.session_state["access_token"] = token
-            # trigger a rerun by changing a query parameter
-            st.query_params(_rerun=int(time.time()))
-            st.stop()
+            rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
-    # halt script until successful login
     st.stop()
 
-# ── 3) Create authenticated Supabase client ─────────────────────────────────
+# ── 4) Authenticated Supabase client ─────────────────────────────────────────
 @st.cache_resource
 def get_supabase(token: str):
     sb = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -38,7 +41,7 @@ def get_supabase(token: str):
 
 supabase = get_supabase(st.session_state["access_token"])
 
-# ── 4) Data helpers ───────────────────────────────────────────────────────────
+# ── 5) Data helpers ──────────────────────────────────────────────────────────
 @st.cache_data(ttl=600)
 def load_options(table: str, column: str):
     resp = supabase.table(table).select(column).execute()
@@ -49,11 +52,10 @@ def load_options(table: str, column: str):
 @st.cache_data(ttl=600)
 def fetch_entries(table: str, country: str, period: str, section: str, search: str):
     q = (
-        supabase
-          .table(table)
-          .select("*")
-          .order("section_num")
-          .order("entry_num")
+        supabase.table(table)
+                .select("*")
+                .order("section_num")
+                .order("entry_num")
     )
     if country != "All":
         q = q.eq("country", country)
@@ -65,13 +67,13 @@ def fetch_entries(table: str, country: str, period: str, section: str, search: s
         q = q.ilike("entry", f"%{search}%")
     return q.execute().data or []
 
-# ── 5) UI filters ─────────────────────────────────────────────────────────────
+# ── 6) UI filters ─────────────────────────────────────────────────────────────
 country = st.selectbox("Country", load_options("English", "country"))
 period  = st.selectbox("Period",  load_options("English", "period"))
 section = st.selectbox("Section", load_options("English", "section"))
 search  = st.text_input("Search entries…")
 
-# ── 6) Fetch and render data ─────────────────────────────────────────────────
+# ── 7) Fetch and render data ─────────────────────────────────────────────────
 eng_rows  = fetch_entries("English", country, period, section, search)
 orig_rows = fetch_entries("OriginalLanguage", country, period, section, search)
 
@@ -87,10 +89,9 @@ def render(rows, label: str):
             st.write(entry)
 
 render(eng_rows,  "English")
-render(orig_rows, "Original Language")
+render(orig_rows, "原文 (Original Language)")
 
-# ── 7) Logout ────────────────────────────────────────────────────────────────
+# ── 8) Logout ────────────────────────────────────────────────────────────────
 if st.button("🔒 Log out"):
     del st.session_state["access_token"]
-    st.query_params(_rerun=int(time.time()))
-    st.stop()
+    rerun()
